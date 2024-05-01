@@ -1,0 +1,19 @@
+
+###Extract the information of GENE ID and probe ID from the re-annotation analysis results.
+awk '{print $4,$10}' rereann38release-82_6new.txt>probeset.txt
+
+###Create a file containing the correspondence between all chip probes and lncRNAs.
+seq 1 6553600>number.txt
+awk 'NR==FNR{a[$1]=$2;next}NR>FNR{if($1 in a){print $0"\t"a[$1]} else {print $0"\t""none"}}' probeset.txt number.txt>i.txt
+
+###Quantify lncRNA
+library (oligo)
+data.dir <- "/home/course/array_expression"
+(celfiles <- list.files(data.dir, "\\.gz$"))
+data.raw <- read.celfiles(filenames = file.path(data.dir, celfiles))
+data.intensity<-intensity(data.raw)
+a<-read.table("/home/course/array_expression/i.txt")
+b<-as.matrix(a)
+pns<-as.vector(b)
+res <- basicRMA(data.intensity, pns, TRUE, TRUE)
+write.table(res,"expression.txt", quote = FALSE, row.names = FALSE)

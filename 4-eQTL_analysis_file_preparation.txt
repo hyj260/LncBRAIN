@@ -1,0 +1,80 @@
+###Extract gender and age information from the clinical information table.
+library(openxlsx)
+# Read the brain regions file
+brain_regions <- read.table('Brain_regions.txt', header=TRUE)
+# Iterate over each brain region
+for (i in 1:nrow(brain_regions)) {
+  region <- brain_regions[i, "Region"]
+  # Filter rows with the current brain region
+  filtered_data <- subset(data, data$`Brain region` == region) 
+  # Extract the 'Sex' and 'Age at death (in years)' columns
+  sex_column <- filtered_data$Sex
+  age_column <- filtered_data$`Age at death (in years)`
+  # Convert 'Female' to 0 and 'Male' to 1 in the 'Sex' column
+  sex_column <- ifelse(sex_column == "Female", 0, 1)
+  # Create a data frame with the transposed columns
+  transposed_data <- data.frame(sex = sex_column, age = age_column)
+  # Transpose the data frame
+  transposed_data <- t(transposed_data)
+  # Write the transposed data to a file
+  output_file <- paste0(region, "_cov.txt")
+  write.table(transposed_data, file = output_file, sep = "\t", quote = FALSE)
+}
+
+###Prepare the first three PCA files for SNPs.
+library(psych)
+# Read the brain regions file
+brain_regions <- read.table('Brain_regions.txt', header=TRUE)
+# Iterate over each brain region
+for (i in 1:nrow(brain_regions)) {
+  region <- brain_regions[i, "Region"]
+  # Read the SNP data file
+  snp_file <- paste0(region, "_SNP.txt")
+  data <- read.table(snp_file, header=TRUE, row.names=1)
+  # Perform PCA analysis
+  pca_result <- principal(data, nfactors = 3, rotate = "none")
+  # Write PCA loadings to a file
+  pca_output_file <- paste0(region, "_pca.txt")
+  write.table(pca_result$loadings, pca_output_file, row.names = TRUE, col.names = TRUE, quote = FALSE)
+}
+
+
+###Prepare the first fifteen PEER factor files for gene expression data.
+library(peer)
+# Read the brain regions file
+brain_regions <- read.table('Brain_regions.txt', header=TRUE)
+# Iterate over each brain region
+for (i in 1:nrow(brain_regions)) {
+  region <- brain_regions[i, "Region"]
+  expression_file <- paste0(region, "_GE.txt")
+  covariate_file <- paste0(region, "_cov.csv")
+  output_file <- paste0(region, "_peer.txt")
+# Perform PEER analysis for the current brain region
+  expr <- read.table(expression_file, header=FALSE)
+  model <- PEER()
+  PEER_setPhenoMean(model, as.matrix(expr))
+  PEER_setNk(model, 15)
+  covs <- read.csv(covariate_file, header=FALSE)
+  PEER_setCovariates(model, as.matrix(covs))
+  PEER_setNmax_iterations(model, 100)
+  PEER_setTolerance(model, 1)
+  PEER_setVarTolerance(model, 0.1)
+  PEER_setPriorAlpha(model, 0.001, 0.1)
+  PEER_setPriorEps(model, 0.1, 10.)
+  PEER_update(model)
+  factors <- PEER_getX(model)
+  write.table(factors, file = output_file, row.names = FALSE, col.names = FALSE, quote = FALSE)
+}
+
+
+###Merge to obtain the final covariate file for eQTL analysis
+# Read the brain regions file
+brain_regions <- read.table('Brain_regions.txt', header=TRUE)
+# Iterate over each brain region
+for (i in 1:nrow(brain_regions)) {
+  region <- brain_regions[i, "Region"]
+  # Concatenate the files and append the contents to the output file
+  cat(file = "WHMT_COV.txt", paste0(region, "_cov.txt"), paste0(region, "_pca.txt"), paste0(region, "_peer.txt"), sep = " ")
+}
+
+
