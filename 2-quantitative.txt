@@ -8,11 +8,11 @@ awk 'NR==FNR{a[$1]=$2;next}NR>FNR{if($1 in a){print $0"\t"a[$1]} else {print $0"
 
 ###Quantify lncRNA
 library (oligo)
-data.dir <- "/home/course/array_expression"
+data.dir <- "/lncbrain/array_expression"
 (celfiles <- list.files(data.dir, "\\.gz$"))
 data.raw <- read.celfiles(filenames = file.path(data.dir, celfiles))
 data.intensity<-intensity(data.raw)
-a<-read.table("/home/course/array_expression/i.txt")
+a<-read.table("/lncbrain/array_expression/i.txt")
 b<-as.matrix(a)
 pns<-as.vector(b)
 res <- basicRMA(data.intensity, pns, TRUE, TRUE)

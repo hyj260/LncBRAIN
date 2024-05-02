@@ -1,7 +1,7 @@
 ##### re-annotation
 ##### SeqMap
 
-/public/home/hanzhj/heyijie/seqmap-1.0.12-linux-64 0 probemain Homo_sapiens.GRCh38.cdnaANDncrna.fa  rereann38release-82new.txt /output_all_matches 
+/lncbrain/seqmap-1.0.12-linux-64 0 probemain Homo_sapiens.GRCh38.cdnaANDncrna.fa  rereann38release-82new.txt /output_all_matches 
 #0 perfect match, 0 mismatch
 
 ################
@@ -19,8 +19,8 @@ awk -F' ' '$2 == 1' ProbeCountnew.txt>Uniquenew.txt
 #####Save the first column of Unique.txt (probes) in Uniquenew1.txt
 awk -F' ' '{print$1}' Uniquenew.txt>Uniquenew1.txt 
 ##### Extract probes and their corresponding transcripts that uniquely match transcript sequences, i.e., extract rows from rereann38release-82_2new.txt that contain content from UniquelymMappedProbe.txt, save them in rereann38release-82_4new.txt. If there is not enough memory, perform the extraction in separate steps using "split -l 10000 Uniquenew1.txt".enew1.txt。
-for i in `ls /public/home/hanzhj/heyijie/uni`; do cat rereann38release-82_2new.txt | awk -F' ' '{print $9}' | grep -n -f $i | awk -F':' '{print $1}' | cat >> rownumbernewa.txt; done
-awk 'NR==FNR{ a[$1]; next }FNR in a' rownumbernewa.txt rereann38release-82_2new.txt > rereann38release-82_4new.txt        #####按行号提取行
+for i in `ls /lncbrain/uni`; do cat rereann38release-82_2new.txt | awk -F' ' '{print $9}' | grep -n -f $i | awk -F':' '{print $1}' | cat >> rownumbernewa.txt; done
+awk 'NR==FNR{ a[$1]; next }FNR in a' rownumbernewa.txt rereann38release-82_2new.txt > rereann38release-82_4new.txt        #####Extract rows based on line numbers
 #####Filter genes with three or more probes
 cat rereann38release-82_4new.txt| awk '{print $4}' | sort |uniq -c>generep
 cat generep  | awk -F ' '  '$1>3{print $0}'>generep4

@@ -1,0 +1,127 @@
+###cis-eQTL
+###Before conducting cis-eQTL analysis, separate the expression file for each lncRNA (lncRNAregionGE.txt) and the SNP file within the cis-region of each lncRNA (lncRNA.txt).
+# Loop through the characters in Brain_regions.txt
+brain_regions <- readLines("Brain_regions.txt")
+for (region in brain_regions) {
+  
+  # Loop through the characters in lncRNA.txt
+  lncRNAs <- readLines("lncRNA.txt")
+  for (lncRNA in lncRNAs) {
+  
+    SNP_file_name <- paste(lncRNA, ".txt", sep = "")
+    expression_file_name <- paste(lncRNA, region, "GE.txt", sep = "")
+    covariates_file_name <- paste(region, "_COV.txt", sep = "")
+    
+    # Rest of the code remains unchanged
+    
+    # cis-eQTL analysis process
+    library(MatrixEQTL)
+    library(dplyr)
+    useModel <- modelLINEAR
+    character()
+    output_file_name <- tempfile()
+    pvOutputThreshold <- 1
+    errorCovariance <- numeric()
+
+    snps <- SlicedData$new()
+    snps$fileDelimiter <- "\t"
+    snps$fileOmitCharacters <- "NA"
+    snps$fileSkipRows <- 1
+    snps$fileSkipColumns <- 1
+    snps$fileSliceSize <- 2000
+    snps$LoadFile(SNP_file_name)
+
+    # Load gene expression data
+
+    gene <- SlicedData$new()
+    gene$fileDelimiter <- "\t"
+    gene$fileOmitCharacters <- "NA"
+    gene$fileSkipRows <- 1
+    gene$fileSkipColumns <- 1
+    gene$fileSliceSize <- 2000
+    gene$LoadFile(expression_file_name)
+
+    cvrt <- SlicedData$new()
+    cvrt$fileDelimiter <- "\t"
+    cvrt$fileOmitCharacters <- "NA"
+    cvrt$fileSkipRows <- 1
+    cvrt$fileSkipColumns <- 1
+    cvrt$fileSliceSize <- 2000
+    cvrt$LoadFile(covariates_file_name)
+
+    me <- Matrix_eQTL_engine(
+      snps = snps,
+      gene = gene,
+      cvrt = cvrt,
+      output_file_name = output_file_name,
+      pvOutputThreshold = pvOutputThreshold,
+      useModel = useModel, 
+      errorCovariance = errorCovariance, 
+      verbose = TRUE,
+      pvalue.hist = TRUE,
+      min.pv.by.genesnp = FALSE,
+      noFDRsaveMemory = FALSE
+    )
+
+    genep <- me$all$eqtls[, c(2, 4)]
+    write.table(genep, file = paste(region, "_cis-eqtl.txt", sep = ""), row.names = FALSE, append = TRUE, sep = '\t', quote = FALSE)
+  }
+}
+
+###sig-eQTL
+###In addition to cis-eQTL analysis, eQTL analysis including trans-eQTL was performed, and the results were filtered based on a p-value threshold of less than 1e-5.
+library(MatrixEQTL)
+library(dplyr)
+useModel <- modelLINEAR
+
+# Read the Brain_regions.txt file
+brain_regions <- readLines("Brain_regions.txt")
+
+# Loop through each region in Brain_regions.txt
+for (region in brain_regions) {
+  SNP_file_name <- paste(region, "_SNP.txt", sep="")
+  expression_file_name <- paste(region, ".txt", sep="")
+  character()
+  output_file_name <- tempfile()
+  pvOutputThreshold <- 1e-5
+  errorCovariance <- numeric()
+
+  snps <- SlicedData$new()
+  snps$fileDelimiter <- "\t"      # the TAB character
+  snps$fileOmitCharacters <- "NA" # denote missing values;
+  snps$fileSkipRows <- 1          # one row of column labels
+  snps$fileSkipColumns <- 1       # one column of row labels
+  snps$fileSliceSize <- 2000      # read file in pieces of 2,000 rows
+  snps$LoadFile(SNP_file_name)
+
+  gene <- SlicedData$new()
+  gene$fileDelimiter <- "\t"      # the TAB character
+  gene$fileOmitCharacters <- "NA" # denote missing values;
+  gene$fileSkipRows <- 1          # one row of column labels
+  gene$fileSkipColumns <- 1       # one column of row labels
+  gene$fileSliceSize <- 2000      # read file in slices of 2,000 rows
+  gene$LoadFile(expression_file_name)
+
+  cvrt <- SlicedData$new()
+  cvrt$fileDelimiter <- "\t"      # the TAB character
+  cvrt$fileOmitCharacters <- "NA" # denote missing values;
+  cvrt$fileSkipRows <- 1          # one row of column labels
+  cvrt$fileSkipColumns <- 1       # one column of row labels
+
+  me <- Matrix_eQTL_engine(
+    snps = snps,
+    gene = gene,
+    cvrt = cvrt,
+    output_file_name = output_file_name,
+    pvOutputThreshold = pvOutputThreshold,
+    useModel = useModel, 
+    errorCovariance = errorCovariance, 
+    verbose = TRUE,
+    pvalue.hist = TRUE,
+    min.pv.by.genesnp = FALSE,
+    noFDRsaveMemory = FALSE
+  )
+
+  genep <- me$all$eqtls[, c(2, 4)]
+  write.table(genep, file = paste(region, "_sig-eqtl.txt", sep = ""), row.names = FALSE, sep = '\t', quote = FALSE)
+}

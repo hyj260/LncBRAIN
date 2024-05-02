@@ -1,0 +1,155 @@
+###Perform eQTL analysis and calculate the minimum p-value (nominal p-value) in the gene.
+library(MatrixEQTL)
+library(dplyr)
+useModel=modelLINEAR
+j=read.table(file="lncRNA.txt",header=FALSE)
+CRBLempiricalP<-data.frame(0,0)
+zhihuanP<-data.frame(0,0)
+colnames(CRBLempiricalP)<-c("lncrnaID","empiricalP")
+pyuzhizong<-data.frame(0,0)
+colnames(pyuzhizong)<-c("lncrnaID","pyuzhi")
+for (i in 1:length(j)) {
+lncrnaID=j[i,]
+SNP_file_name = paste( "CRBL",lncrnaID,".txt", sep="");
+expression_file_name = paste(lncrnaID,"CRBLGE.txt", sep="");
+covariates_file_name= paste("CRBLCOV.txt", sep="");
+character()
+output_file_name = tempfile();
+pvOutputThreshold = 1
+errorCovariance = numeric()
+snps = SlicedData$new();
+snps$fileDelimiter = "\t";      # the TAB character
+snps$fileOmitCharacters = "NA"; # denote missing values;
+snps$fileSkipRows = 1;          # one row of column labels
+snps$fileSkipColumns = 1;       # one column of row labels
+snps$fileSliceSize = 2000;      # read file in pieces of 2,000 rows
+snps$LoadFile( SNP_file_name );
+gene = SlicedData$new();
+gene$fileDelimiter = "\t";      # the TAB character
+gene$fileOmitCharacters = "NA"; # denote missing values;
+gene$fileSkipRows = 1;          # one row of column labels
+gene$fileSkipColumns = 1;       # one column of row labels
+gene$fileSliceSize = 2000;      # read file in slices of 2,000 rows
+gene$LoadFile(expression_file_name);
+cvrt = SlicedData$new();
+cvrt$fileDelimiter = "\t";      # the TAB character
+cvrt$fileOmitCharacters = "NA"; # denote missing values;
+cvrt$fileSkipRows = 1;          # one row of column labels
+cvrt$fileSkipColumns = 1;       # one column of row labels
+cvrt$fileSliceSize = 2000;      # read file in slices of 2,000 rows
+cvrt$LoadFile(covariates_file_name);
+me = Matrix_eQTL_engine(
+snps = snps,
+gene = gene,
+cvrt = cvrt,
+output_file_name = output_file_name,
+pvOutputThreshold = pvOutputThreshold,
+useModel = useModel,
+errorCovariance = errorCovariance,
+verbose = TRUE,
+pvalue.hist = TRUE,
+min.pv.by.genesnp = FALSE,
+noFDRsaveMemory = FALSE);
+geneminp<- me$all$eqtls[,c(2,4)]
+rm(me)
+rm(gene)
+rm(cvrt)
+
+
+###permutation analysis
+geneminp<-group_by(geneminp,gene)
+geneminp<-summarise(geneminp,min_mon=min(pvalue))
+zeo<-rep(0,nrow(geneminp))
+generesult<-geneminp[,1]
+columns<-c(1:nrow(geneminp))
+resultdataframe<-as.data.frame(cbind(generesult,zeo,columns))
+resultdataframe$columns<-as.numeric(resultdataframe$columns)
+resultdataframe$zeo<-as.numeric(resultdataframe$zeo)
+b<-read.table(expression_file_name,row.names = 1,header = TRUE,check.names=FALSE)
+c<-read.csv(covariates_file_name,row.names = 1,header = TRUE,sep = "\t",check.names=FALSE)
+cgene<-c[c(1:17),]
+csnppca<-c[c(18:20),]
+geneminpall<-data.frame(rep(0,1))
+for (i in 1:10000)
+{
+if (i<=1000|resultdataframe$zeo<15){
+set.seed(i)
+bnew<-b[,sample(ncol(b))]
+colnames(bnew)<-colnames(b)
+set.seed(i)
+cgenenew<-cgene[,sample(ncol(cgene))]
+colnames(cgenenew)<-colnames(cgene)
+cnew<-rbind(cgenenew,csnppca)
+write.table(bnew,file = paste(lncrnaID,"bnew.txt", sep=""),sep = "\t",col.names =NA,quote = FALSE)
+write.table(cnew,file = paste(lncrnaID,"cnew.csv", sep=""),sep = "\t",col.names =NA,quote = FALSE)
+useModel=modelLINEAR
+expression_file_name = paste(lncrnaID,"bnew.txt", sep="");
+covariates_file_name= paste(lncrnaID,"cnew.csv", sep="");
+character()
+output_file_name = tempfile();
+pvOutputThreshold = 1
+errorCovariance = numeric()
+## Load gene expression data
+gene = SlicedData$new();
+gene$fileDelimiter = "\t";      # the TAB character
+gene$fileOmitCharacters = "NA"; # denote missing values;
+gene$fileSkipRows = 1;          # one row of column labels
+gene$fileSkipColumns = 1;       # one column of row labels
+gene$fileSliceSize = 2000;      # read file in slices of 2,000 rows
+gene$LoadFile(expression_file_name);
+cvrt = SlicedData$new();
+cvrt$fileDelimiter = "\t";      # the TAB character
+cvrt$fileOmitCharacters = "NA"; # denote missing values;
+cvrt$fileSkipRows = 1;          # one row of column labels
+cvrt$fileSkipColumns = 1;       # one column of row labels
+cvrt$fileSliceSize = 2000;      # read file in slices of 2,000 rows
+cvrt$LoadFile(covariates_file_name);
+menew = Matrix_eQTL_engine(
+snps = snps,
+gene = gene,
+cvrt = cvrt,
+output_file_name = output_file_name,
+pvOutputThreshold = pvOutputThreshold,
+useModel = useModel,
+errorCovariance = errorCovariance,
+verbose = TRUE,
+pvalue.hist = TRUE,
+min.pv.by.genesnp = FALSE,
+noFDRsaveMemory = FALSE);
+geneminpnew<- menew$all$eqtls[,c("gene","pvalue")]
+rm(menew)
+geneminpnew<-group_by(geneminpnew,gene)
+geneminpnew<-summarise(geneminpnew,min_mon=min(pvalue))
+geneminpall<-cbind(geneminpall,geneminpnew[,2])
+df=data.frame(A=geneminp$min_mon,B=geneminpnew$min_mon,C=1:nrow(geneminp))
+smallerp<-filter(df,A>B)
+###Count the number of iterations in which the loop's p-value is less than the nominal p-value.
+
+resultdataframe$zeo[c(smallerp$C)]<-resultdataframe$zeo[c(smallerp$C)]+1
+Iterations_Number<-i
+}
+}
+smallerp_Number<-resultdataframe$zeo
+empiricalP<-smallerp_Number/Iterations_Number
+write.table(CRBLempiricalP,file="CRBLempiricalP.txt",append = TRUE,row.names = FALSE,col.names = FALSE,quote = FALSE)
+###Calculate empirical p-value.
+
+###Compute the empirical p-values of genes with empirical q-values closest to 0.05 in Windows(CRBLempiricalP2.txt)
+
+geneminpall<-geneminpall[,-1]
+geneminpall<-geneminpall[,order(geneminpall)]
+empiricalP<-as.numeric(read.table("CRBLempiricalP2.txt"))
+  Number<-ceiling(empiricalP*xunhuancishu)
+  p-value_threshold<-geneminpall[,Number]
+  idANDp-value_threshold<-data.frame(lncrnaID,p-value_threshold)
+  p-value_threshold_ALL<-rbind(p-value_threshold_ALL,idANDp-value_threshold)
+smallerpgeshu<-resultdataframe$zeo
+empiricalP<-smallerpgeshu/Iterations_Number
+idANDempiricalP<-data.frame(lncrnaID,empiricalP)
+CRBLempiricalP<-rbind(CRBLempiricalP,idANDempiricalP)
+}
+CRBLempiricalP<-CRBLempiricalP[-1,]
+p-value_threshold_ALL<-p-value_threshold_ALL[-1,]
+###Filter out a p-value threshold based on empirical p-values compared to permutation p-values
+
+write.table(pyuzhizong,file="CRBLpyuzhi.txt",append = TRUE,row.names = FALSE,col.names = FALSE,quote = FALSE)
