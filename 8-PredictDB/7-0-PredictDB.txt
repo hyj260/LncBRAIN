@@ -1,0 +1,75 @@
+###Split the annotation file into individual chromosomes. You will end up with 22 files for each autosome
+python ./code/split_snp_annot_by_chr.py ./data/snp_annotation.txt ./output/snp_annot
+###Split the genitype into individual chromosomes
+python ./code/split_genotype_by_chr.py ./data/genotype.txt ./output/genotype
+
+###Preprocess the expression file
+# Load packages
+library(tidyverse)
+library(dplyr)
+library(RSQLite)
+# Load data
+gene_exp = read.table(file = "./data/GE.txt", header = TRUE, sep = "\t")
+# rename a column
+gene_exp = rename(gene_exp, 'Gene_Name' = ID)
+# Transpose the data to enable you rub peer factors
+n = gene_exp$Gene_Name
+gene_exp_transpose <- as.data.frame(t(gene_exp[,-1]))
+colnames(gene_exp_transpose) <- n
+# write the transposed gene expression. The .csv is for the peer tool
+write.table(gene_exp_transpose, file = './output/gene_exp.csv', sep = ",", col.names = TRUE, row.names = FALSE)
+write.table(gene_exp_transpose, file = "./output/transformed_expression.txt", sep = "\t",
+            row.names = TRUE)
+            
+###Calculate peer covariates
+peertool -f './output/gene_exp.csv' -n 60 --has_header -o ./output/peer_out
+
+###Make covariates and residuals
+# Load packages
+library(tidyverse)
+library(dplyr)
+library(RSQLite)
+# Load data
+gene_exp = read.table(file = "./data/GE.txt", header = TRUE, sep = "\t")
+# rename a column
+gene_exp = rename(gene_exp, 'Gene_Name' = ID)
+# Transpose the data to enable you rub peer factors
+n = gene_exp$Gene_Name
+gene_exp_transpose <- as.data.frame(t(gene_exp[,-1]))
+colnames(gene_exp_transpose) <- n
+# write the transposed gene expression. The .csv is for the peer tool
+write.table(gene_exp_transpose, file = './output/gene_exp.csv', sep = ",", col.names = TRUE, row.names = FALSE)
+write.table(gene_exp_transpose, file = "./output/transformed_expression.txt", sep = "\t",
+            row.names = TRUE)
+###covariates
+peer_factors = read.csv(file = "./output/peer_out/X.csv", header = FALSE)
+#Set the column names for the PEER factors (covariates) as the subject IDs
+colnames(peer_factors) = rownames(gene_exp_transpose)
+# write out a covariates matrix
+write.table(peer_factors, file = "./output/covariates.txt", sep = "\t",
+            row.names = TRUE)
+### Make a copy of the transposed gene expression dataframe so that we can replace the values with the residuals of the multiple linear regressions.
+expression = gene_exp_transpose
+# This loops through all the columns of the transposed gene expression which correspond to each gene,for each gene it runs linear regression on the PEER factor covariates. Then it sets the residuals to the new expression for that gene.
+for (i in 1:length(colnames(gene_exp_transpose))) {
+    fit = lm(gene_exp_transpose[,i] ~ t(as.matrix(peer_factors)))
+    expression[,i] <- fit$residuals
+  }
+# Write out the residual expression file
+write.table(expression, file = "./output/residuals_expression.txt", sep = "\t",
+            row.names = TRUE)
+
+###Train the models
+mkdir -p ./summary ./covariances ./weights
+for i in {1..22}
+do
+{
+  Rscript ../7-PredictDB/gtex_tiss_chrom_training.R ${i} &
+}
+done
+wait
+
+###Make a database
+mkdir -p ./dbs
+Rscript Make-database.R
+

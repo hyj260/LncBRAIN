@@ -1,0 +1,132 @@
+library(tidyverse)
+
+
+
+CRBLGE <- read.table("/lncbrain/CRBLGE.txt",header=T,row.names= 1)
+FCTXGE <- read.table("/lncbrain/FCTXGE.txt",header=T,row.names= 1)
+HIPPGE <- read.table("/lncbrain/HIPPGE.txt",header=T,row.names= 1)
+MEDUGE <- read.table("/lncbrain/MEDUGE.txt",header=T,row.names= 1)
+OCTXGE <- read.table("/lncbrain/OCTXGE.txt",header=T,row.names= 1)
+PUTMGE <- read.table("/lncbrain/PUTMGE.txt",header=T,row.names= 1)
+SNIGGE <- read.table("/lncbrain/SNIGGE.txt",header=T,row.names= 1)
+TCTXGE <- read.table("/lncbrain/TCTXGE.txt",header=T,row.names= 1)
+THALGE <- read.table("/lncbrain/THALGE.txt",header=T,row.names= 1)
+WHMTGE <- read.table("/lncbrain/WHMTGE.txt",header=T,row.names= 1)
+
+CRBLtopasseQTL <- read.table("/lncbrain/CRBLtopasseQTL", header=F,row.names= 1)
+FCTXtopasseQTL <- read.table("/lncbrain/FCTXtopasseQTL", header=F,row.names= 1)
+HIPPtopasseQTL <- read.table("/lncbrain/HIPPtopasseQTL", header=F,row.names= 1)
+MEDUtopasseQTL <- read.table("/lncbrain/MEDUtopasseQTL", header=F,row.names= 1)
+OCTXtopasseQTL <- read.table("/lncbrain/OCTXtopasseQTL", header=F,row.names= 1)
+PUTMtopasseQTL <- read.table("/lncbrain/PUTMtopasseQTL", header=F,row.names= 1)
+SNIGtopasseQTL <- read.table("/lncbrain/SNIGtopasseQTL", header=F,row.names= 1)
+TCTXtopasseQTL <- read.table("/lncbrain/TCTXtopasseQTL", header=F,row.names= 1)
+THALtopasseQTL <- read.table("/lncbrain/THALtopasseQTL", header=F,row.names= 1)
+WHMTtopasseQTL <- read.table("/lncbrain/WHMTtopasseQTL", header=F,row.names= 1)
+
+
+GE <- list(CRBLGE,PUTMGE,OCTXGE,FCTXGE,TCTXGE,MEDUGE,WHMTGE,THALGE,SNIGGE,HIPPGE)
+topasseQTL <- list(CRBLtopasseQTL,PUTMtopasseQTL,OCTXtopasseQTL,FCTXtopasseQTL,TCTXtopasseQTL,MEDUtopasseQTL,WHMTtopasseQTL,THALtopasseQTL,SNIGtopasseQTL,HIPPtopasseQTL)
+
+rALL <- c()
+r_seALL <- c()
+
+
+for(i in 1:9){
+k <- i+1
+    for(j in k:10){
+    
+topasseQTL_sub1 <- topasseQTL[[i]][union(rownames(topasseQTL[[i]]), rownames(topasseQTL[[j]])),]
+topasseQTL_sub2 <- topasseQTL[[j]][union(rownames(topasseQTL[[i]]), rownames(topasseQTL[[j]])),]
+
+GE_sub1 <- GE[[i]][union(rownames(topasseQTL[[i]]), rownames(topasseQTL[[j]])),]
+GE_sub2 <- GE[[j]][union(rownames(topasseQTL[[i]]), rownames(topasseQTL[[j]])),]
+
+
+
+columns1 <- colnames(GE_sub1)
+columns2 <- colnames(GE_sub2)
+similar_column_name<-intersect(columns1,columns2)
+
+feature2 <- GE_sub1 %>% select(similar_column_name)
+feature1 <- GE_sub2 %>% select(similar_column_name)
+
+myfun<- function(x) {cor(x[1:length(feature1)], x[(length(feature1)+1):(2*length(feature1))])}
+phcor <- apply(cbind(feature1, feature2), 1, myfun)
+
+so<-length(similar_column_name)/(length(columns1)*length(columns2))^0.5
+
+theta <- so*phcor
+
+
+b1 <- topasseQTL_sub1[,2]
+b2 <- topasseQTL_sub2[,2]
+
+se1 <- sqrt(((b1)^2)/qchisq(topasseQTL_sub1[,1],1,lower.tail=F))
+se2 <- sqrt(((b2)^2)/qchisq(topasseQTL_sub2[,1],1,lower.tail=F))
+
+idx=which(is.infinite(b1) | is.infinite(b2) | is.infinite(se1) | is.infinite(se2));
+    if(length(idx)>0){
+        b1=b1[-idx];se1=se1[-idx]
+        b2=b2[-idx];se2=se2[-idx]
+        theta=theta[-idx]
+    }
+
+    var_b1=var(b1,na.rm=T)-mean(se1^2,na.rm=T)
+    var_b2=var(b2,na.rm=T)-mean(se2^2,na.rm=T)
+    if(var_b1<0){
+      var_b1=var(b1,na.rm=T)
+    }
+    if(var_b2<0){
+      var_b2=var(b2,na.rm=T)
+    }
+    cov_b1_b2=cov(b1,b2,use="complete.obs")-mean(theta,na.rm=T)*sqrt(mean(se1^2,na.rm=T)*mean(se2^2,na.rm=T))
+    r=cov_b1_b2/sqrt(var_b1*var_b2)
+
+    r_jack=c()
+    n=length(b1)
+    for(k in 1:n) {
+       b1_jack=b1[-k];se1_jack=se1[-k];var_b1_jack=var(b1_jack,na.rm=T)-mean(se1_jack^2,na.rm=T)
+       b2_jack=b2[-k];se2_jack=se2[-k];var_b2_jack=var(b2_jack,na.rm=T)-mean(se2_jack^2,na.rm=T)
+       if(var_b1_jack<0){
+        var_b1_jack=var(b1_jack,na.rm=T);
+       }
+       if(var_b2_jack<0){
+        var_b2_jack=var(b2_jack,na.rm=T);
+       }
+       theta_jack=theta[-k];
+       cov_e1_jack_e2_jack=mean(theta_jack,na.rm=T)*sqrt(mean(se1_jack^2,na.rm=T)*mean(se2_jack^2,na.rm=T))
+       cov_b1_b2_jack=cov(b1_jack,b2_jack,use="complete.obs")-cov_e1_jack_e2_jack
+       r_tmp=cov_b1_b2_jack/sqrt(var_b1_jack*var_b2_jack)
+       r_jack=c(r_jack,r_tmp)
+    }
+    r_mean=mean(r_jack,na.rm=T)
+    idx=which(is.na(r_jack))
+    if(length(idx)>0){
+        se_r=sqrt((n-1)/n*sum((r_jack[-idx]-r_mean)^2))
+    }else{
+    	se_r=sqrt((n-1)/n*sum((r_jack-r_mean)^2))
+    }
+    res<-cbind(r,se_r)
+    
+ rALL <- c(rALL,res[1])
+ r_seALL <- c(r_seALL,res[2])  
+
+  }
+}
+
+rALLmatr<-as.matrix(rALL,lenght(rALL),1)
+r_seALLmatr<-as.matrix(r_seALL,lenght(r_seALL),1)
+
+rownames(rALLmatr) <- c("CRBLvsFCTX","CRBLvsHIPP","CRBLvsMEDU","CRBLvsOCTX","CRBLvsPUTM","CRBLvsSNIG","CRBLvsTCTX","CRBLvsTHAL","CRBLvsWHMT","FCTXvsHIPP","FCTXvsMEDU","FCTXvsOCTX","FCTXvsPUTM","FCTXvsSNIG","FCTXvsTCTX","FCTXvsTHAL","FCTXvsWHMT","HIPPvsMEDU","HIPPvsOCTX","HIPPvsPUTM","HIPPvsSNIG","HIPPvsTCTX","HIPPvsTHAL","HIPPvsWHMT","MEDUvsOCTX","MEDUvsPUTM","MEDUvsSNIG","MEDUvsTCTX","MEDUvsTHAL","MEDUvsWHMT","OCTXvsPUTM","OCTXvsSNIG","OCTXvsTCTX","OCTXvsTHAL","OCTXvsWHMT","PUTMvsSNIG","PUTMvsTCTX","PUTMvsTHAL","PUTMvsWHMT","SNIGvsTCTX","SNIGvsTHAL","SNIGvsWHMT","TCTXvsTHAL","TCTXvsWHMT","THALvsWHMT")
+rownames(r_seALLmatr) <- c("CRBLvsFCTX","CRBLvsHIPP","CRBLvsMEDU","CRBLvsOCTX","CRBLvsPUTM","CRBLvsSNIG","CRBLvsTCTX","CRBLvsTHAL","CRBLvsWHMT","FCTXvsHIPP","FCTXvsMEDU","FCTXvsOCTX","FCTXvsPUTM","FCTXvsSNIG","FCTXvsTCTX","FCTXvsTHAL","FCTXvsWHMT","HIPPvsMEDU","HIPPvsOCTX","HIPPvsPUTM","HIPPvsSNIG","HIPPvsTCTX","HIPPvsTHAL","HIPPvsWHMT","MEDUvsOCTX","MEDUvsPUTM","MEDUvsSNIG","MEDUvsTCTX","MEDUvsTHAL","MEDUvsWHMT","OCTXvsPUTM","OCTXvsSNIG","OCTXvsTCTX","OCTXvsTHAL","OCTXvsWHMT","PUTMvsSNIG","PUTMvsTCTX","PUTMvsTHAL","PUTMvsWHMT","SNIGvsTCTX","SNIGvsTHAL","SNIGvsWHMT","TCTXvsTHAL","TCTXvsWHMT","THALvsWHMT")
+
+
+write.table(rALLmatr,"/lncbrain/rALLmatr")
+write.table(r_seALLmatr,"/lncbrain/r_seALLmatr")
+
+
+
+
+
+
