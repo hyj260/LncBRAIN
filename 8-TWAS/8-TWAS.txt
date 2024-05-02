@@ -1,0 +1,18 @@
+for i in $(cat region.txt)
+do
+   for j in $(cat disease.txt)
+   do
+      /lncbrain/TWAS/SPrediXcan.py \
+--model_db_path /lncbrain/filtered_signif.db \
+--covariance /lncbrain/covariances.txt \
+--gwas_folder /lncbrain/gwas/ \
+--gwas_file_pattern ${j}GWAS.txt \
+--snp_column SNP \
+--effect_allele_column ALT \
+--non_effect_allele_column REF \
+--beta_column BETA \
+--pvalue_column P \
+--output_file ./${i}${j}filtered.csv
+   done
+done
+
