@@ -152,4 +152,4 @@ CRBLempiricalP<-CRBLempiricalP[-1,]
 p-value_threshold_ALL<-p-value_threshold_ALL[-1,]
 ###Filter out a p-value threshold based on empirical p-values compared to permutation p-values
 
-write.table(pyuzhizong,file="CRBLpyuzhi.txt",append = TRUE,row.names = FALSE,col.names = FALSE,quote = FALSE)
+write.table(p-value_threshold_ALL,file="CRBL-p-threshold.txt",append = TRUE,row.names = FALSE,col.names = FALSE,quote = FALSE)
