@@ -1,0 +1,72 @@
+library('optparse')  # Load the optparse package
+option_list <- list(  # Create the option list
+  make_option( c("-d", "--data"), type = "character", default = FALSE, help = "Input file") 
+  # Set the type of the input parameter (logical, integer, double, complex, character)
+  # Set the default value of the parameter
+  # Provide the help information for the parameter
+)
+opt_parser <- OptionParser(option_list = option_list)  # Parse the options
+opt <- parse_args(opt_parser)  # Parse the arguments
+part <- opt$data  # Store the value of the -d parameter in 'part'
+file5 <- paste0("/lncbrain/CRBLlncrnacol", part, collapse = NULL)
+
+lnccol <- read.csv(file5, header = FALSE, col.names = 'ID')
+mcol <- read.csv('/lncbrain/CRBLmrnacol.txt', header = FALSE, col.names = 'ID')
+set <- read.csv('/lncbrain/imputed_4.dosage', sep = ' ')
+bdlnc <- read.csv('/lncbrain/CRBLGE.txt', sep = '\t')  # lnc expression data
+bdm <- read.csv('/lncbrain/CRBLGE.txt', sep = '\t')  # m expression data
+colnames(bdm)[1] <- 'ID'
+
+lnccol <- lnccol[lnccol$ID %in% bdlnc$ID, ]
+lnccol <- as.data.frame(lnccol)
+mcol <- mcol[mcol$ID %in% bdm$ID, ]
+mcol <- as.data.frame(mcol)
+library(dplyr)
+library(ivreg)
+
+for (i in 1:nrow(lnccol)) {
+  id1 <- lnccol[i, 1]
+  file1 <- paste0("/lncbrain/CRBL/", id1, "_tworow.txt", collapse = NULL)
+  data1 <- read.csv(file1, sep = ' ', header = FALSE, col.names = c('rs', 'p'))
+  for (j in 1:nrow(mcol)) {
+    id2 <- mcol[j, 1]
+    file2 <- paste0("/lncbrain/CRBL/", id2, "_tworow.txt", collapse = NULL)
+    data2 <- read.csv(file2, sep = ' ', header = FALSE, col.names = c('rs', 'p'))
+    coldata <- merge(data1, data2, by.x = 'rs', by.y = 'rs')
+    colnames(coldata) <- c('rs', 'lncp', 'mp')
+    
+    data <- coldata[coldata$lncp < coldata$mp, 1]
+    mergecol <- c(id1, data, id2)
+    snpset <- set[set$ID %in% data, ]
+    lncset <- bdlnc[bdlnc$ID %in% id1, ]
+    mset <- bdm[bdm$ID %in% id2, ]
+    snpset <- snpset[, colnames(lncset)]
+    mset <- mset[, colnames(lncset)]
+    finaldata <- t(rbind(lncset, snpset, mset))
+    colnames(finaldata) <- finaldata[1, ]
+    finaldata <- finaldata[-1, ]
+    finaldata <- as.data.frame(finaldata)
+    
+    psnp <- paste(data, sep = '', collapse = '+')
+    pid <- paste(id1, id2, sep = '~', collapse = "")
+    pidsnp <- as.formula(paste(pid, psnp, sep = '|'))
+    
+    finaldata <- lapply(finaldata, as.numeric)
+    finaldata <- as.data.frame(finaldata)
+    
+    ivreg_iv <- ivreg(formula = pidsnp, data = finaldata)
+    if (is.null(summary(ivreg_iv)$diagnostic)) {
+      # Do nothing
+    } else {
+      if (summary(ivreg_iv)$diagnostic[1, 4] < 0.05  # Weak instruments test
+          & summary(ivreg_iv)$diagnostic[2, 4] < 0.05  & summary(ivreg_iv)$diagnostic[3, 4] > 0.05  # Sargan overidentification test
+      ) {
+        all <- data.frame()
+        record <- c(id1, id2, summary(ivreg_iv)$coefficients[2, 4], summary(ivreg_iv)$r.squared, length(data), summary(ivreg_iv)$sigma)
+        all <- rbind(all, record)
+        file4 <- paste0("/lncbrain/CRBL/", id1, "_", id2, ".txt", collapse = NULL)
+        write.table(all, file4, quote = FALSE, row.names = FALSE, col.names = FALSE)
+      }
+    }
+  }
+}
