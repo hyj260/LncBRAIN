@@ -3,7 +3,7 @@ First, the probes were align from probemain and the sequences of genes in Homo_s
   
 # Quantification of lncRNAs  
 Then, the lncRNAs were quantified based on the correspondence between the probes and lncRNAs, as well as the raw data from the expression microarray (CEL files).  
-  
+
 # Differential expression analysis  
 Afterward, the elncRNA differential expression analysis and other related analyses were performed based on the expression level files of lncRNAs in different brain regions.  
   
