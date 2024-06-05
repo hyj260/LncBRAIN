@@ -1,7 +1,7 @@
-re-annotation  
+Probe set re-annotation  
 First, we align the probes from probemain and the sequences of genes in Homo_sapiens.GRCh38.cdnaANDncrna.fa. We then filter out the probes that only match a single lncRNA.  
   
-quantitative  
+lncRNA quantitative  
 Then, we quantify the lncRNA based on the correspondence between the probes and lncRNAs, as well as the raw data from the expression microarray (CEL files).  
   
 Differential expression analysis  
